@@ -43,8 +43,6 @@ func NewMatchControllerEndpoints() []*api.Endpoint {
 
 type MatchControllerService interface {
 	Call(ctx context.Context, in *Request, opts ...client.CallOption) (*Response, error)
-	Stream(ctx context.Context, in *StreamingRequest, opts ...client.CallOption) (MatchController_StreamService, error)
-	PingPong(ctx context.Context, opts ...client.CallOption) (MatchController_PingPongService, error)
 }
 
 type matchControllerService struct {
@@ -69,119 +67,15 @@ func (c *matchControllerService) Call(ctx context.Context, in *Request, opts ...
 	return out, nil
 }
 
-func (c *matchControllerService) Stream(ctx context.Context, in *StreamingRequest, opts ...client.CallOption) (MatchController_StreamService, error) {
-	req := c.c.NewRequest(c.name, "MatchController.Stream", &StreamingRequest{})
-	stream, err := c.c.Stream(ctx, req, opts...)
-	if err != nil {
-		return nil, err
-	}
-	if err := stream.Send(in); err != nil {
-		return nil, err
-	}
-	return &matchControllerServiceStream{stream}, nil
-}
-
-type MatchController_StreamService interface {
-	Context() context.Context
-	SendMsg(interface{}) error
-	RecvMsg(interface{}) error
-	Close() error
-	Recv() (*StreamingResponse, error)
-}
-
-type matchControllerServiceStream struct {
-	stream client.Stream
-}
-
-func (x *matchControllerServiceStream) Close() error {
-	return x.stream.Close()
-}
-
-func (x *matchControllerServiceStream) Context() context.Context {
-	return x.stream.Context()
-}
-
-func (x *matchControllerServiceStream) SendMsg(m interface{}) error {
-	return x.stream.Send(m)
-}
-
-func (x *matchControllerServiceStream) RecvMsg(m interface{}) error {
-	return x.stream.Recv(m)
-}
-
-func (x *matchControllerServiceStream) Recv() (*StreamingResponse, error) {
-	m := new(StreamingResponse)
-	err := x.stream.Recv(m)
-	if err != nil {
-		return nil, err
-	}
-	return m, nil
-}
-
-func (c *matchControllerService) PingPong(ctx context.Context, opts ...client.CallOption) (MatchController_PingPongService, error) {
-	req := c.c.NewRequest(c.name, "MatchController.PingPong", &Ping{})
-	stream, err := c.c.Stream(ctx, req, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return &matchControllerServicePingPong{stream}, nil
-}
-
-type MatchController_PingPongService interface {
-	Context() context.Context
-	SendMsg(interface{}) error
-	RecvMsg(interface{}) error
-	Close() error
-	Send(*Ping) error
-	Recv() (*Pong, error)
-}
-
-type matchControllerServicePingPong struct {
-	stream client.Stream
-}
-
-func (x *matchControllerServicePingPong) Close() error {
-	return x.stream.Close()
-}
-
-func (x *matchControllerServicePingPong) Context() context.Context {
-	return x.stream.Context()
-}
-
-func (x *matchControllerServicePingPong) SendMsg(m interface{}) error {
-	return x.stream.Send(m)
-}
-
-func (x *matchControllerServicePingPong) RecvMsg(m interface{}) error {
-	return x.stream.Recv(m)
-}
-
-func (x *matchControllerServicePingPong) Send(m *Ping) error {
-	return x.stream.Send(m)
-}
-
-func (x *matchControllerServicePingPong) Recv() (*Pong, error) {
-	m := new(Pong)
-	err := x.stream.Recv(m)
-	if err != nil {
-		return nil, err
-	}
-	return m, nil
-}
-
 // Server API for MatchController service
 
 type MatchControllerHandler interface {
 	Call(context.Context, *Request, *Response) error
-	Stream(context.Context, *StreamingRequest, MatchController_StreamStream) error
-	PingPong(context.Context, MatchController_PingPongStream) error
 }
 
 func RegisterMatchControllerHandler(s server.Server, hdlr MatchControllerHandler, opts ...server.HandlerOption) error {
 	type matchController interface {
 		Call(ctx context.Context, in *Request, out *Response) error
-		Stream(ctx context.Context, stream server.Stream) error
-		PingPong(ctx context.Context, stream server.Stream) error
 	}
 	type MatchController struct {
 		matchController
@@ -196,89 +90,4 @@ type matchControllerHandler struct {
 
 func (h *matchControllerHandler) Call(ctx context.Context, in *Request, out *Response) error {
 	return h.MatchControllerHandler.Call(ctx, in, out)
-}
-
-func (h *matchControllerHandler) Stream(ctx context.Context, stream server.Stream) error {
-	m := new(StreamingRequest)
-	if err := stream.Recv(m); err != nil {
-		return err
-	}
-	return h.MatchControllerHandler.Stream(ctx, m, &matchControllerStreamStream{stream})
-}
-
-type MatchController_StreamStream interface {
-	Context() context.Context
-	SendMsg(interface{}) error
-	RecvMsg(interface{}) error
-	Close() error
-	Send(*StreamingResponse) error
-}
-
-type matchControllerStreamStream struct {
-	stream server.Stream
-}
-
-func (x *matchControllerStreamStream) Close() error {
-	return x.stream.Close()
-}
-
-func (x *matchControllerStreamStream) Context() context.Context {
-	return x.stream.Context()
-}
-
-func (x *matchControllerStreamStream) SendMsg(m interface{}) error {
-	return x.stream.Send(m)
-}
-
-func (x *matchControllerStreamStream) RecvMsg(m interface{}) error {
-	return x.stream.Recv(m)
-}
-
-func (x *matchControllerStreamStream) Send(m *StreamingResponse) error {
-	return x.stream.Send(m)
-}
-
-func (h *matchControllerHandler) PingPong(ctx context.Context, stream server.Stream) error {
-	return h.MatchControllerHandler.PingPong(ctx, &matchControllerPingPongStream{stream})
-}
-
-type MatchController_PingPongStream interface {
-	Context() context.Context
-	SendMsg(interface{}) error
-	RecvMsg(interface{}) error
-	Close() error
-	Send(*Pong) error
-	Recv() (*Ping, error)
-}
-
-type matchControllerPingPongStream struct {
-	stream server.Stream
-}
-
-func (x *matchControllerPingPongStream) Close() error {
-	return x.stream.Close()
-}
-
-func (x *matchControllerPingPongStream) Context() context.Context {
-	return x.stream.Context()
-}
-
-func (x *matchControllerPingPongStream) SendMsg(m interface{}) error {
-	return x.stream.Send(m)
-}
-
-func (x *matchControllerPingPongStream) RecvMsg(m interface{}) error {
-	return x.stream.Recv(m)
-}
-
-func (x *matchControllerPingPongStream) Send(m *Pong) error {
-	return x.stream.Send(m)
-}
-
-func (x *matchControllerPingPongStream) Recv() (*Ping, error) {
-	m := new(Ping)
-	if err := x.stream.Recv(m); err != nil {
-		return nil, err
-	}
-	return m, nil
 }
