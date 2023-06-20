@@ -1,7 +1,9 @@
 package main
 
 import (
+	"match_controller/center"
 	"match_controller/handler"
+	"match_controller/internal/manager"
 	pb "match_controller/proto"
 
 	"github.com/micro/micro/v3/service"
@@ -10,9 +12,12 @@ import (
 
 func main() {
 	// Create service
+	center.DefaultManager = manager.NewManager()
 	srv := service.New(
 		service.Name("match_controller"),
 		service.Version("latest"),
+		service.AfterStart(center.DefaultManager.Start),
+		service.BeforeStop(center.DefaultManager.Stop),
 	)
 
 	// Register handler

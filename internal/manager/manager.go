@@ -1,0 +1,128 @@
+package manager
+
+import (
+	"context"
+	"fmt"
+	"match_controller/center"
+	"match_controller/internal/db"
+	"match_controller/utils"
+	match_process "match_process/proto"
+	"math"
+	"sync"
+	"time"
+
+	"github.com/micro/micro/v3/service/client"
+	"github.com/micro/micro/v3/service/logger"
+	"github.com/micro/micro/v3/service/server"
+)
+
+type gameConfig struct {
+	GameId      string
+	GroupCount  int
+	OffsetCount int
+	SubType     int64
+}
+
+func NewManager(opts ...center.CenterOption) center.Manager {
+	m := &defaultMgr{
+		exited:       make(chan struct{}, 1),
+		matchChannel: make(chan string, 2000),
+		gameConfig:   &sync.Map{},
+	}
+	for _, o := range opts {
+		o(&m.opts)
+	}
+	return m
+}
+
+type defaultMgr struct {
+	opts         center.CenterOptions
+	exited       chan struct{}
+	matchChannel chan string
+	gameConfig   *sync.Map //map[string]*gameConfig
+}
+
+func (m *defaultMgr) Start() error {
+	go m.loop()
+	return nil
+}
+
+func (m *defaultMgr) Stop() error {
+	close(m.exited)
+	return nil
+}
+
+func (m *defaultMgr) loop() {
+	ticket := time.NewTicker(time.Second * 10)
+	defer ticket.Stop()
+	for {
+		select {
+		case <-m.exited:
+			return
+		case gameId := <-m.matchChannel:
+			val, ok := m.gameConfig.Load(gameId)
+			if ok {
+				config, okk := val.(*gameConfig)
+				if okk && config != nil {
+					m.processTask(config)
+				}
+			}
+		}
+	}
+}
+
+func (m *defaultMgr) processTask(config *gameConfig) {
+	var count int
+	var err error
+	if count, err = db.Default.GetQueueCount(context.Background(), config.GameId, config.SubType); err != nil {
+		logger.Errorf("processTask get GetQueueCount %s %d error %s", config.GameId, config.SubType, err.Error())
+	}
+	if count <= 0 {
+		return
+	}
+	segCount := int(math.Ceil(float64(count) / float64(config.GroupCount)))
+	reqList := make([]*match_process.MatchTaskReq, 0, 10)
+	matchId := fmt.Sprintf("%s-%d", server.DefaultServer.Options().Id, time.Now().UnixNano()/1e6)
+	evalhaskKey := utils.RandomString(15)
+	EvalGroupId := matchId
+	for i := 0; i < segCount; i++ {
+		st := (i * config.GroupCount) + 1 - config.OffsetCount
+		ed := (i+1)*config.GroupCount + config.OffsetCount
+		if st <= 0 {
+			st = 1
+		}
+		needStop := false
+		if ed >= count {
+			ed = count
+			needStop = true
+		}
+		reqList = append(reqList, &match_process.MatchTaskReq{
+			TaskId:             matchId,
+			SubTaskId:          fmt.Sprintf("%s-%d", matchId, i+1),
+			GameId:             config.GameId,
+			SubType:            config.SubType,
+			StartPos:           int64(st),
+			EndPos:             int64(ed),
+			EvalGroupId:        EvalGroupId,
+			EvalGroupTaskCount: 0,
+			EvalGroupSubId:     int64(i + 1),
+			EvalhaskKey:        evalhaskKey,
+		})
+		if needStop {
+			break
+		}
+	}
+	go func() {
+		realSegCount := len(reqList)
+		matchSrv := match_process.NewMatchProcessService("match_process", client.DefaultClient)
+		for _, rr := range reqList {
+			rr.EvalGroupTaskCount = int64(realSegCount)
+			rsp, err := matchSrv.MatchTask(context.Background(), rr)
+			if err != nil {
+				logger.Infof("MatchTask error %+v", err)
+			} else {
+				logger.Infof("MatchTask result %+v", rsp)
+			}
+		}
+	}()
+}
