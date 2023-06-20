@@ -3,7 +3,8 @@ package redis
 import (
 	"context"
 	"fmt"
-	match_frontend "match_frontend/proto"
+
+	match_frontend "github.com/askldfhjg/match_apis/match_frontend/proto"
 
 	"github.com/gomodule/redigo/redis"
 	"github.com/micro/micro/v3/service/logger"

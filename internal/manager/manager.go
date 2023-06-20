@@ -6,10 +6,11 @@ import (
 	"match_controller/center"
 	"match_controller/internal/db"
 	"match_controller/utils"
-	match_process "match_process/proto"
 	"math"
 	"sync"
 	"time"
+
+	match_process "github.com/askldfhjg/match_apis/match_process/proto"
 
 	"github.com/micro/micro/v3/service/client"
 	"github.com/micro/micro/v3/service/logger"

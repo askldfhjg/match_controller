@@ -3,8 +3,12 @@ module match_controller
 go 1.15
 
 require (
+	github.com/askldfhjg/match_apis/match_frontend/proto v0.0.0-20230620074112-ec09d134d666
+	github.com/askldfhjg/match_apis/match_process/proto v0.0.0-20230620074112-ec09d134d666
 	github.com/golang/protobuf v1.4.3
+	github.com/gomodule/redigo v1.8.9
 	github.com/micro/micro/v3 v3.3.0
+	github.com/pkg/errors v0.9.1
 	github.com/rs/cors v1.9.0 // indirect
 	google.golang.org/protobuf v1.26.0-rc.1
 )

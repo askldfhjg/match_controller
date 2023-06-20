@@ -2,7 +2,8 @@ package db
 
 import (
 	"context"
-	match_frontend "match_frontend/proto"
+
+	match_frontend "github.com/askldfhjg/match_apis/match_frontend/proto"
 )
 
 var Default Service

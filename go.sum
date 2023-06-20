@@ -41,8 +41,12 @@ github.com/alecthomas/units v0.0.0-20190717042225-c3de453c63f4/go.mod h1:ybxpYRF
 github.com/aliyun/alibaba-cloud-sdk-go v0.0.0-20190808125512-07798873deee/go.mod h1:myCDvQSzCW+wB1WAlocEru4wMGJxy+vlxHdhegi1CDQ=
 github.com/aliyun/aliyun-oss-go-sdk v0.0.0-20190307165228-86c17b95fcd5/go.mod h1:T/Aws4fEfogEE9v+HPhhw+CntffsBHJ8nXQCwKr0/g8=
 github.com/apache/thrift v0.12.0/go.mod h1:cp2SuWMxlEZw2r+iP2GNCdIi4C1qmUzdZFSVb+bacwQ=
-github.com/askldfhjg/micro/v3 v3.4.0 h1:rpFgweNZlVvfx4XVfapYQhnrvYNSDsu7RajzgWfgfpM=
-github.com/askldfhjg/micro/v3 v3.4.0/go.mod h1:fjM05rgV6dv4tdIKGqXTX3dQUNlzIbN88GlPwXWPBws=
+github.com/askldfhjg/match_apis/match_frontend/proto v0.0.0-20230620074112-ec09d134d666 h1:8NdJhx0V5BhdC4NrpauVAbmqdqH0QEHK80RD+0ZPx4A=
+github.com/askldfhjg/match_apis/match_frontend/proto v0.0.0-20230620074112-ec09d134d666/go.mod h1:0NM2zxkWI7kAe/LnIbF+YN6M6fo3iEBtOdH3AAx80bo=
+github.com/askldfhjg/match_apis/match_process/proto v0.0.0-20230620074112-ec09d134d666 h1:cwD9CQk1z111/tdifr2ajjtizECTZX10J+8iCogWb2I=
+github.com/askldfhjg/match_apis/match_process/proto v0.0.0-20230620074112-ec09d134d666/go.mod h1:U2h7k1TmDsyCSW82CfHCfH59Jl075osJtGRPruRyYDY=
+github.com/askldfhjg/micro/v3 v3.5.0 h1:+5x/xpXfUXMb4qa70L498/kgtBc35Iq+F60pHI1Kilw=
+github.com/askldfhjg/micro/v3 v3.5.0/go.mod h1:fjM05rgV6dv4tdIKGqXTX3dQUNlzIbN88GlPwXWPBws=
 github.com/aws/aws-sdk-go v1.23.0/go.mod h1:KmX6BPdI08NWTb3/sm4ZGu5ShLoqVDhKgpiN924inxo=
 github.com/baiyubin/aliyun-sts-go-sdk v0.0.0-20180326062324-cfa1a18b161f/go.mod h1:AuiFmCCPBSrqvVMvuqFuk0qogytodnVFVSN5CeJB8Gc=
 github.com/beorn7/perks v0.0.0-20180321164747-3a771d992973/go.mod h1:Dwedo/Wpr24TaqPxmxbtue+5NUziq4I4S80YR8gNf3Q=
@@ -153,6 +157,8 @@ github.com/golang/protobuf v1.4.2/go.mod h1:oDoupMAO8OvCJWAcko0GGGIgR6R6ocIYbsSw
 github.com/golang/protobuf v1.4.3 h1:JjCZWpVbqXDqFVmTfYWEVTMIYrL/NPdPSCHPJ0T/raM=
 github.com/golang/protobuf v1.4.3/go.mod h1:oDoupMAO8OvCJWAcko0GGGIgR6R6ocIYbsSw735rRwI=
 github.com/golang/snappy v0.0.0-20180518054509-2e65f85255db/go.mod h1:/XxbfmMg8lxefKM7IXC3fBNl/7bRcc72aCRzEWrmP2Q=
+github.com/gomodule/redigo v1.8.9 h1:Sl3u+2BI/kk+VEatbj0scLdrFhjPmbxOc1myhDP41ws=
+github.com/gomodule/redigo v1.8.9/go.mod h1:7ArFNvsTjH8GMMzB4uy1snslv2BwmginuMs06a1uzZE=
 github.com/google/btree v0.0.0-20180813153112-4030bb1f1f0c/go.mod h1:lNA+9X1NB3Zf8V7Ke586lFgjr2dZNuvo3lPJSGZ5JPQ=
 github.com/google/btree v1.0.0 h1:0udJVsspx3VBr5FwtLhQQtuAsVc79tTq0ocGIPAU6qo=
 github.com/google/btree v1.0.0/go.mod h1:lNA+9X1NB3Zf8V7Ke586lFgjr2dZNuvo3lPJSGZ5JPQ=
