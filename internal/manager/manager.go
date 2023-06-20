@@ -22,6 +22,7 @@ type gameConfig struct {
 	GroupCount  int
 	OffsetCount int
 	SubType     int64
+	NeedCount   int64
 }
 
 func NewManager(opts ...center.CenterOption) center.Manager {
@@ -108,6 +109,7 @@ func (m *defaultMgr) processTask(config *gameConfig) {
 			EvalGroupTaskCount: 0,
 			EvalGroupSubId:     int64(i + 1),
 			EvalhaskKey:        evalhaskKey,
+			NeedCount:          config.NeedCount,
 		})
 		if needStop {
 			break
