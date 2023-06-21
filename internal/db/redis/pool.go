@@ -15,8 +15,9 @@ import (
 )
 
 const (
-	allTickets = "allTickets:%s:%d"
-	ticketKey  = "ticket:%s"
+	allTickets     = "allTickets:%s:%d"
+	ticketKey      = "ticket:%s"
+	poolVersionKey = "poolVersionKey:%s:%d"
 )
 
 func New(opts ...db.Option) (db.Service, error) {

@@ -11,7 +11,9 @@ import (
 	"time"
 
 	match_process "github.com/askldfhjg/match_apis/match_process/proto"
+	"google.golang.org/protobuf/proto"
 
+	"github.com/micro/micro/v3/service/broker"
 	"github.com/micro/micro/v3/service/client"
 	"github.com/micro/micro/v3/service/logger"
 	"github.com/micro/micro/v3/service/server"
@@ -76,10 +78,17 @@ func (m *defaultMgr) loop() {
 func (m *defaultMgr) processTask(config *gameConfig) {
 	var count int
 	var err error
-	if count, err = db.Default.GetQueueCount(context.Background(), config.GameId, config.SubType); err != nil {
+	ctx := context.Background()
+	if count, err = db.Default.GetQueueCount(ctx, config.GameId, config.SubType); err != nil {
 		logger.Errorf("processTask get GetQueueCount %s %d error %s", config.GameId, config.SubType, err.Error())
 	}
 	if count <= 0 {
+		return
+	}
+	version := time.Now().UnixNano()
+	err = db.Default.AddPoolVersion(ctx, config.GameId, config.SubType, version)
+	if err != nil {
+		logger.Errorf("processTask AddPoolVersion %s %d error %s", config.GameId, config.SubType, err.Error())
 		return
 	}
 	segCount := int(math.Ceil(float64(count) / float64(config.GroupCount)))
@@ -110,11 +119,13 @@ func (m *defaultMgr) processTask(config *gameConfig) {
 			EvalGroupSubId:     int64(i + 1),
 			EvalhaskKey:        evalhaskKey,
 			NeedCount:          config.NeedCount,
+			Version:            version,
 		})
 		if needStop {
 			break
 		}
 	}
+	m.PublishPoolVersion(config.GameId, config.SubType, version)
 	go func() {
 		realSegCount := len(reqList)
 		matchSrv := match_process.NewMatchProcessService("match_process", client.DefaultClient)
@@ -128,4 +139,20 @@ func (m *defaultMgr) processTask(config *gameConfig) {
 			}
 		}
 	}()
+}
+
+func (m *defaultMgr) PublishPoolVersion(gameId string, subType int64, version int64) {
+	msg := &match_process.PoolVersionMsg{
+		GameId:  gameId,
+		SubType: subType,
+		Version: version,
+	}
+	by, _ := proto.Marshal(msg)
+	err := broker.Publish("pool_version", &broker.Message{
+		Header: map[string]string{"gameId": gameId},
+		Body:   by,
+	})
+	if err != nil {
+		logger.Errorf("PublishPoolVersion publish err : %s", err.Error())
+	}
 }

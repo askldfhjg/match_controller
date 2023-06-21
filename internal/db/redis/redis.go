@@ -93,3 +93,13 @@ func (m *redisBackend) GetQueueCount(ctx context.Context, gameId string, subType
 	zsetKey := fmt.Sprintf(allTickets, gameId, subType)
 	return redis.Int(redisConn.Do("ZCARD", zsetKey))
 }
+
+func (m *redisBackend) AddPoolVersion(ctx context.Context, gameId string, subType int64, version int64) error {
+	redisConn, err := m.redisPool.GetContext(ctx)
+	if err != nil {
+		return err
+	}
+	defer handleConnectionClose(&redisConn)
+	_, err = redisConn.Do("SET", fmt.Sprintf(poolVersionKey, gameId, subType), version)
+	return err
+}

@@ -16,6 +16,7 @@ type Service interface {
 	RemoveToken(ctx context.Context, playerId string, gameId string, subType int64) error
 	GetToken(ctx context.Context, playerId string) (*match_frontend.MatchInfo, error)
 	GetQueueCount(ctx context.Context, gameId string, subType int64) (int, error)
+	AddPoolVersion(ctx context.Context, gameId string, subType int64, version int64) error
 }
 
 type MatchInfo struct {
