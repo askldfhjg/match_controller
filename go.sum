@@ -41,10 +41,10 @@ github.com/alecthomas/units v0.0.0-20190717042225-c3de453c63f4/go.mod h1:ybxpYRF
 github.com/aliyun/alibaba-cloud-sdk-go v0.0.0-20190808125512-07798873deee/go.mod h1:myCDvQSzCW+wB1WAlocEru4wMGJxy+vlxHdhegi1CDQ=
 github.com/aliyun/aliyun-oss-go-sdk v0.0.0-20190307165228-86c17b95fcd5/go.mod h1:T/Aws4fEfogEE9v+HPhhw+CntffsBHJ8nXQCwKr0/g8=
 github.com/apache/thrift v0.12.0/go.mod h1:cp2SuWMxlEZw2r+iP2GNCdIi4C1qmUzdZFSVb+bacwQ=
-github.com/askldfhjg/match_apis/match_frontend/proto v0.0.0-20230620090656-78bbaca0712e h1:Q/6N741ckHKUbuYeQmD5SSaE6JXaor4mfv6QPgnckwU=
-github.com/askldfhjg/match_apis/match_frontend/proto v0.0.0-20230620090656-78bbaca0712e/go.mod h1:0NM2zxkWI7kAe/LnIbF+YN6M6fo3iEBtOdH3AAx80bo=
-github.com/askldfhjg/match_apis/match_process/proto v0.0.0-20230620090656-78bbaca0712e h1:O57UkIvDMQk2NA5GKjXKt7Gt2uVKuVXAAMfrFVe9/iU=
-github.com/askldfhjg/match_apis/match_process/proto v0.0.0-20230620090656-78bbaca0712e/go.mod h1:U2h7k1TmDsyCSW82CfHCfH59Jl075osJtGRPruRyYDY=
+github.com/askldfhjg/match_apis/match_frontend/proto v0.0.0-20230621021020-57881bae15e6 h1:nq8R8gnePMaZ7gReoMdTSBZvvqUsL6UjB5tpQbfTA3E=
+github.com/askldfhjg/match_apis/match_frontend/proto v0.0.0-20230621021020-57881bae15e6/go.mod h1:0NM2zxkWI7kAe/LnIbF+YN6M6fo3iEBtOdH3AAx80bo=
+github.com/askldfhjg/match_apis/match_process/proto v0.0.0-20230621021020-57881bae15e6 h1:OSNPrePSPYbJ/0PcZJJV+TCEjkvcIlo+JjxRBaKP5Vk=
+github.com/askldfhjg/match_apis/match_process/proto v0.0.0-20230621021020-57881bae15e6/go.mod h1:U2h7k1TmDsyCSW82CfHCfH59Jl075osJtGRPruRyYDY=
 github.com/askldfhjg/micro/v3 v3.5.0 h1:+5x/xpXfUXMb4qa70L498/kgtBc35Iq+F60pHI1Kilw=
 github.com/askldfhjg/micro/v3 v3.5.0/go.mod h1:fjM05rgV6dv4tdIKGqXTX3dQUNlzIbN88GlPwXWPBws=
 github.com/aws/aws-sdk-go v1.23.0/go.mod h1:KmX6BPdI08NWTb3/sm4ZGu5ShLoqVDhKgpiN924inxo=
