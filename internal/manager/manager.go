@@ -85,8 +85,8 @@ func (m *defaultMgr) processTask(config *gameConfig) {
 	if count <= 0 {
 		return
 	}
-	version := time.Now().UnixNano()
-	err = db.Default.AddPoolVersion(ctx, config.GameId, config.SubType, version)
+
+	version, err := m.PublishPoolVersion(ctx, config.GameId, config.SubType)
 	if err != nil {
 		logger.Errorf("processTask AddPoolVersion %s %d error %s", config.GameId, config.SubType, err.Error())
 		return
@@ -125,7 +125,6 @@ func (m *defaultMgr) processTask(config *gameConfig) {
 			break
 		}
 	}
-	m.PublishPoolVersion(config.GameId, config.SubType, version)
 	go func() {
 		realSegCount := len(reqList)
 		matchSrv := match_process.NewMatchProcessService("match_process", client.DefaultClient)
@@ -141,18 +140,24 @@ func (m *defaultMgr) processTask(config *gameConfig) {
 	}()
 }
 
-func (m *defaultMgr) PublishPoolVersion(gameId string, subType int64, version int64) {
+func (m *defaultMgr) PublishPoolVersion(ctx context.Context, gameId string, subType int64) (int64, error) {
+	version := time.Now().UnixNano()
+	err := db.Default.AddPoolVersion(ctx, gameId, subType, version)
+	if err != nil {
+		return 0, err
+	}
 	msg := &match_process.PoolVersionMsg{
 		GameId:  gameId,
 		SubType: subType,
 		Version: version,
 	}
 	by, _ := proto.Marshal(msg)
-	err := broker.Publish("pool_version", &broker.Message{
+	err = broker.Publish("pool_version", &broker.Message{
 		Header: map[string]string{"gameId": gameId},
 		Body:   by,
 	})
 	if err != nil {
 		logger.Errorf("PublishPoolVersion publish err : %s", err.Error())
 	}
+	return version, err
 }
