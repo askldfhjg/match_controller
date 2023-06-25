@@ -1,4 +1,4 @@
-package center
+package controller
 
 type Flag int
 

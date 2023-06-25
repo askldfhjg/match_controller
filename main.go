@@ -1,7 +1,7 @@
 package main
 
 import (
-	"match_controller/center"
+	"match_controller/controller"
 	"match_controller/handler"
 	"match_controller/internal/db"
 	"match_controller/internal/db/redis"
@@ -14,7 +14,7 @@ import (
 
 func main() {
 	// Create service
-	center.DefaultManager = manager.NewManager()
+	controller.DefaultManager = manager.NewManager()
 	srv := service.New(
 		service.Name("match_controller"),
 		service.Version("latest"),
@@ -30,8 +30,8 @@ func main() {
 			db.Default = svr
 			return nil
 		}),
-		service.AfterStart(center.DefaultManager.Start),
-		service.BeforeStop(center.DefaultManager.Stop),
+		service.AfterStart(controller.DefaultManager.Start),
+		service.BeforeStop(controller.DefaultManager.Stop),
 	)
 
 	// Register handler

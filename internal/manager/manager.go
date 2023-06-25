@@ -3,7 +3,7 @@ package manager
 import (
 	"context"
 	"fmt"
-	"match_controller/center"
+	"match_controller/controller"
 	"match_controller/internal/db"
 	"match_controller/utils"
 	"math"
@@ -27,7 +27,7 @@ type gameConfig struct {
 	NeedCount   int64
 }
 
-func NewManager(opts ...center.CenterOption) center.Manager {
+func NewManager(opts ...controller.CenterOption) controller.Manager {
 	m := &defaultMgr{
 		exited:       make(chan struct{}, 1),
 		matchChannel: make(chan string, 2000),
@@ -40,7 +40,7 @@ func NewManager(opts ...center.CenterOption) center.Manager {
 }
 
 type defaultMgr struct {
-	opts         center.CenterOptions
+	opts         controller.CenterOptions
 	exited       chan struct{}
 	matchChannel chan string
 	gameConfig   *sync.Map //map[string]*gameConfig
@@ -53,6 +53,11 @@ func (m *defaultMgr) Start() error {
 
 func (m *defaultMgr) Stop() error {
 	close(m.exited)
+	return nil
+}
+
+func (m *defaultMgr) AddTask(gameId string) error {
+	m.matchChannel <- gameId
 	return nil
 }
 

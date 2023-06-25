@@ -42,7 +42,7 @@ func NewMatchControllerEndpoints() []*api.Endpoint {
 // Client API for MatchController service
 
 type MatchControllerService interface {
-	Call(ctx context.Context, in *Request, opts ...client.CallOption) (*Response, error)
+	AddTask(ctx context.Context, in *AddTaskReq, opts ...client.CallOption) (*AddTaskRsp, error)
 }
 
 type matchControllerService struct {
@@ -57,9 +57,9 @@ func NewMatchControllerService(name string, c client.Client) MatchControllerServ
 	}
 }
 
-func (c *matchControllerService) Call(ctx context.Context, in *Request, opts ...client.CallOption) (*Response, error) {
-	req := c.c.NewRequest(c.name, "MatchController.Call", in)
-	out := new(Response)
+func (c *matchControllerService) AddTask(ctx context.Context, in *AddTaskReq, opts ...client.CallOption) (*AddTaskRsp, error) {
+	req := c.c.NewRequest(c.name, "MatchController.AddTask", in)
+	out := new(AddTaskRsp)
 	err := c.c.Call(ctx, req, out, opts...)
 	if err != nil {
 		return nil, err
@@ -70,12 +70,12 @@ func (c *matchControllerService) Call(ctx context.Context, in *Request, opts ...
 // Server API for MatchController service
 
 type MatchControllerHandler interface {
-	Call(context.Context, *Request, *Response) error
+	AddTask(context.Context, *AddTaskReq, *AddTaskRsp) error
 }
 
 func RegisterMatchControllerHandler(s server.Server, hdlr MatchControllerHandler, opts ...server.HandlerOption) error {
 	type matchController interface {
-		Call(ctx context.Context, in *Request, out *Response) error
+		AddTask(ctx context.Context, in *AddTaskReq, out *AddTaskRsp) error
 	}
 	type MatchController struct {
 		matchController
@@ -88,6 +88,6 @@ type matchControllerHandler struct {
 	MatchControllerHandler
 }
 
-func (h *matchControllerHandler) Call(ctx context.Context, in *Request, out *Response) error {
-	return h.MatchControllerHandler.Call(ctx, in, out)
+func (h *matchControllerHandler) AddTask(ctx context.Context, in *AddTaskReq, out *AddTaskRsp) error {
+	return h.MatchControllerHandler.AddTask(ctx, in, out)
 }
