@@ -19,12 +19,17 @@ import (
 	"github.com/micro/micro/v3/service/server"
 )
 
-type gameConfig struct {
+type poolConfig struct {
 	GameId      string
 	GroupCount  int
 	OffsetCount int
 	SubType     int64
 	NeedCount   int64
+}
+
+type gameConfig struct {
+	GameId string
+	Pools  []*poolConfig
 }
 
 func NewManager(opts ...controller.CenterOption) controller.Manager {
@@ -47,6 +52,18 @@ type defaultMgr struct {
 }
 
 func (m *defaultMgr) Start() error {
+	m.gameConfig.Store("aaaa", &gameConfig{
+		GameId: "aaaa",
+		Pools: []*poolConfig{
+			{
+				GameId:      "aaaa",
+				GroupCount:  2000,
+				OffsetCount: 100,
+				SubType:     1,
+				NeedCount:   3,
+			},
+		},
+	})
 	go m.loop()
 	return nil
 }
@@ -73,16 +90,19 @@ func (m *defaultMgr) loop() {
 			if ok {
 				config, okk := val.(*gameConfig)
 				if okk && config != nil {
-					m.processTask(config)
+					for _, poolCfg := range config.Pools {
+						go m.processTask(poolCfg)
+					}
 				}
 			}
 		}
 	}
 }
 
-func (m *defaultMgr) processTask(config *gameConfig) {
+func (m *defaultMgr) processTask(config *poolConfig) {
 	var count int
 	var err error
+	logger.Infof("processTask %+v", config)
 	ctx := context.Background()
 	if count, err = db.Default.GetQueueCount(ctx, config.GameId, config.SubType); err != nil {
 		logger.Errorf("processTask get GetQueueCount %s %d error %s", config.GameId, config.SubType, err.Error())
@@ -135,11 +155,12 @@ func (m *defaultMgr) processTask(config *gameConfig) {
 		matchSrv := match_process.NewMatchProcessService("match_process", client.DefaultClient)
 		for _, rr := range reqList {
 			rr.EvalGroupTaskCount = int64(realSegCount)
+			logger.Infof("result %+v", rr)
 			rsp, err := matchSrv.MatchTask(context.Background(), rr)
 			if err != nil {
-				logger.Infof("MatchTask error %+v", err)
+				logger.Infof("processTask send error %+v", err)
 			} else {
-				logger.Infof("MatchTask result %+v", rsp)
+				logger.Infof("processTask send result %+v", rsp)
 			}
 		}
 	}()
