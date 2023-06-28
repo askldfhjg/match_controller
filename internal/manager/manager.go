@@ -154,11 +154,11 @@ func (m *defaultMgr) processTask(config *poolConfig) {
 		for _, rr := range reqList {
 			rr.EvalGroupTaskCount = int64(realSegCount)
 			logger.Infof("result %+v", rr)
-			rsp, err := matchSrv.MatchTask(context.Background(), rr)
+			_, err := matchSrv.MatchTask(context.Background(), rr)
 			if err != nil {
 				logger.Infof("processTask send error %+v", err)
 			} else {
-				logger.Infof("processTask send result %+v", rsp)
+				//logger.Infof("processTask send result %+v", rsp)
 			}
 		}
 	}()
