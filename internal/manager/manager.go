@@ -79,8 +79,6 @@ func (m *defaultMgr) AddTask(gameId string) error {
 }
 
 func (m *defaultMgr) loop() {
-	ticket := time.NewTicker(time.Second * 10)
-	defer ticket.Stop()
 	for {
 		select {
 		case <-m.exited:
@@ -102,16 +100,16 @@ func (m *defaultMgr) loop() {
 func (m *defaultMgr) processTask(config *poolConfig) {
 	var count int
 	var err error
-	logger.Infof("processTask %+v", config)
-	ctx := context.Background()
-	if count, err = db.Default.GetQueueCount(ctx, config.GameId, config.SubType); err != nil {
+	//logger.Infof("processTask %+v", config)
+	if count, err = db.Default.GetQueueCount(context.Background(), config.GameId, config.SubType); err != nil {
 		logger.Errorf("processTask get GetQueueCount %s %d error %s", config.GameId, config.SubType, err.Error())
+		return
 	}
 	if count <= 0 {
 		return
 	}
 
-	version, err := m.PublishPoolVersion(ctx, config.GameId, config.SubType)
+	version, err := m.PublishPoolVersion(config.GameId, config.SubType)
 	if err != nil {
 		logger.Errorf("processTask AddPoolVersion %s %d error %s", config.GameId, config.SubType, err.Error())
 		return
@@ -166,9 +164,9 @@ func (m *defaultMgr) processTask(config *poolConfig) {
 	}()
 }
 
-func (m *defaultMgr) PublishPoolVersion(ctx context.Context, gameId string, subType int64) (int64, error) {
+func (m *defaultMgr) PublishPoolVersion(gameId string, subType int64) (int64, error) {
 	version := time.Now().UnixNano()
-	err := db.Default.AddPoolVersion(ctx, gameId, subType, version)
+	err := db.Default.AddPoolVersion(context.Background(), gameId, subType, version)
 	if err != nil {
 		return 0, err
 	}
@@ -183,7 +181,9 @@ func (m *defaultMgr) PublishPoolVersion(ctx context.Context, gameId string, subT
 		Body:   by,
 	})
 	if err != nil {
+		db.Default.DelPoolVersion(context.Background(), gameId, subType)
 		logger.Errorf("PublishPoolVersion publish err : %s", err.Error())
+		return 0, err
 	}
 	return version, err
 }
