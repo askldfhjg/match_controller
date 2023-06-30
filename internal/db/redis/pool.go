@@ -14,12 +14,6 @@ import (
 	"github.com/pkg/errors"
 )
 
-const (
-	allTickets     = "allTickets:%s:%d"
-	ticketKey      = "ticket:%s"
-	poolVersionKey = "poolVersionKey:%s:%d"
-)
-
 func New(opts ...db.Option) (db.Service, error) {
 	srv := &redisBackend{}
 	err := srv.Init(context.Background(), opts...)

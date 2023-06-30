@@ -7,6 +7,11 @@ import (
 	"github.com/gomodule/redigo/redis"
 )
 
+const (
+	allTickets     = "allTickets:%s:%d"
+	poolVersionKey = "poolVersionKey:%s:%d"
+)
+
 func (m *redisBackend) GetQueueCount(ctx context.Context, gameId string, subType int64) (int, error) {
 	redisConn, err := m.redisPool.GetContext(ctx)
 	if err != nil {
