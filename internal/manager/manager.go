@@ -157,7 +157,7 @@ func (m *defaultMgr) processTask(config *poolConfig) {
 				continue
 			}
 			rr.EvalGroupTaskCount = int64(realSegCount)
-			logger.Infof("result %+v", rr)
+			//logger.Infof("result %+v", rr)
 			_, err := matchSrv.MatchTask(context.Background(), rr)
 			if err != nil {
 				logger.Infof("processTask send error %+v", err)
