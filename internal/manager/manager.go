@@ -119,6 +119,7 @@ func (m *defaultMgr) processTask(config *poolConfig) {
 	evalhaskKey := utils.RandomString(15)
 	EvalGroupId := matchId
 	startTime := time.Now().UnixNano() / 1e6
+	realSegCount := 0
 	for i := 0; i < segCount; i++ {
 		st := (i * config.GroupCount) + 1 - config.OffsetCount
 		ed := (i+1)*config.GroupCount + config.OffsetCount
@@ -145,12 +146,12 @@ func (m *defaultMgr) processTask(config *poolConfig) {
 			Version:            version,
 			StartTime:          startTime,
 		}
+		realSegCount++
 		if needStop {
 			break
 		}
 	}
 	go func() {
-		realSegCount := len(reqList)
 		matchSrv := match_process.NewMatchProcessService("match_process", client.DefaultClient)
 		for _, rr := range reqList {
 			if rr == nil {
