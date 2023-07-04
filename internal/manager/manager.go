@@ -16,7 +16,6 @@ import (
 	"github.com/micro/micro/v3/service/broker"
 	"github.com/micro/micro/v3/service/client"
 	"github.com/micro/micro/v3/service/logger"
-	"github.com/micro/micro/v3/service/server"
 )
 
 type poolConfig struct {
@@ -115,10 +114,11 @@ func (m *defaultMgr) processTask(config *poolConfig) {
 		return
 	}
 	segCount := int(math.Ceil(float64(count) / float64(config.GroupCount)))
-	reqList := make([]*match_process.MatchTaskReq, 0, 10)
-	matchId := fmt.Sprintf("%s-%d", server.DefaultServer.Options().Id, time.Now().UnixNano()/1e6)
+	reqList := make([]*match_process.MatchTaskReq, segCount)
+	matchId := fmt.Sprintf("%s-%d-%d", config.GameId, config.SubType, time.Now().UnixNano())
 	evalhaskKey := utils.RandomString(15)
 	EvalGroupId := matchId
+	startTime := time.Now().UnixNano() / 1e6
 	for i := 0; i < segCount; i++ {
 		st := (i * config.GroupCount) + 1 - config.OffsetCount
 		ed := (i+1)*config.GroupCount + config.OffsetCount
@@ -130,7 +130,7 @@ func (m *defaultMgr) processTask(config *poolConfig) {
 			ed = count
 			needStop = true
 		}
-		reqList = append(reqList, &match_process.MatchTaskReq{
+		reqList[i] = &match_process.MatchTaskReq{
 			TaskId:             matchId,
 			SubTaskId:          fmt.Sprintf("%s-%d", matchId, i+1),
 			GameId:             config.GameId,
@@ -143,7 +143,8 @@ func (m *defaultMgr) processTask(config *poolConfig) {
 			EvalhaskKey:        evalhaskKey,
 			NeedCount:          config.NeedCount,
 			Version:            version,
-		})
+			StartTime:          startTime,
+		}
 		if needStop {
 			break
 		}
@@ -152,6 +153,9 @@ func (m *defaultMgr) processTask(config *poolConfig) {
 		realSegCount := len(reqList)
 		matchSrv := match_process.NewMatchProcessService("match_process", client.DefaultClient)
 		for _, rr := range reqList {
+			if rr == nil {
+				continue
+			}
 			rr.EvalGroupTaskCount = int64(realSegCount)
 			logger.Infof("result %+v", rr)
 			_, err := matchSrv.MatchTask(context.Background(), rr)
