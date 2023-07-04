@@ -4,7 +4,7 @@ go 1.15
 
 require (
 	github.com/Shopify/sarama v1.19.0
-	github.com/askldfhjg/match_apis/match_process/proto v0.0.0-20230704014110-8ca341c0ea48
+	github.com/askldfhjg/match_apis/match_process/proto v0.0.0-20230704015118-25aead71a3e6
 	github.com/golang/protobuf v1.4.3
 	github.com/gomodule/redigo v1.8.9
 	github.com/google/uuid v1.1.2
