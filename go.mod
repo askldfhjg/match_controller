@@ -19,4 +19,4 @@ require (
 // see https://github.com/etcd-io/etcd/issues/11154 and https://github.com/etcd-io/etcd/issues/11931.
 //replace google.golang.org/grpc => google.golang.org/grpc v1.26.0
 
-replace github.com/micro/micro/v3 v3.3.0 => github.com/askldfhjg/micro/v3 v3.6.3
+replace github.com/micro/micro/v3 v3.3.0 => github.com/askldfhjg/micro/v3 v3.6.4
