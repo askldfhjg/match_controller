@@ -56,7 +56,7 @@ func (m *defaultMgr) Start() error {
 		Pools: []*poolConfig{
 			{
 				GameId:      "aaaa",
-				GroupCount:  1000,
+				GroupCount:  3000,
 				OffsetCount: 50,
 				SubType:     1,
 				NeedCount:   3,
