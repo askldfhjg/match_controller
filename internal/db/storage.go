@@ -10,7 +10,7 @@ type Service interface {
 	Init(ctx context.Context, opts ...Option) error
 	Close(ctx context.Context) error
 	String() string
-	GetQueueCount(ctx context.Context, gameId string, subType int64) (int, error)
+	GetQueueCounts(ctx context.Context, gameId string, subType int64, groupCount int) ([]int, error)
 	AddPoolVersion(ctx context.Context, gameId string, subType int64, version int64) error
 	DelPoolVersion(ctx context.Context, gameId string, subType int64)
 }

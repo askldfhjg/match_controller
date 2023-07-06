@@ -12,14 +12,45 @@ const (
 	poolVersionKey = "poolVersionKey:%s:%d"
 )
 
-func (m *redisBackend) GetQueueCount(ctx context.Context, gameId string, subType int64) (int, error) {
+func (m *redisBackend) GetQueueCounts(ctx context.Context, gameId string, subType int64, groupCount int) ([]int, error) {
 	redisConn, err := m.redisPool.GetContext(ctx)
 	if err != nil {
-		return 0, err
+		return nil, err
 	}
 	defer handleConnectionClose(&redisConn)
-	zsetKey := fmt.Sprintf(allTickets, gameId, subType)
-	return redis.Int(redisConn.Do("ZCARD", zsetKey))
+
+	script := `local count = redis.call('ZCARD', KEYS[1])
+	if(not count) then
+		return {}
+	end
+	if(not ARGV[1]) then
+		error("groupCount error")
+	end
+	local groupCount = tonumber(ARGV[1])
+	if(groupCount <= 0) then
+		error("groupCount <= 0")
+	end
+	local segmentSize = math.ceil(count / groupCount)
+	local segmentBoundaries = {}
+
+	for i = 1, segmentSize+1 do
+		local startRank = ((i-1) * groupCount)
+		if(startRank > count) then
+			startRank = -1
+		end
+		local segmentMembers = redis.call("ZRANGE", KEYS[1], startRank, startRank, "WITHSCORES")
+		local score = tonumber(segmentMembers[2])
+		table.insert(segmentBoundaries, score)
+	end
+	return segmentBoundaries
+	`
+
+	args := []interface{}{groupCount}
+	keys := []interface{}{fmt.Sprintf(allTickets, gameId, subType)}
+	params := []interface{}{script, len(keys)}
+	params = append(params, keys...)
+	params = append(params, args...)
+	return redis.Ints(redisConn.Do("EVAL", params...))
 }
 
 func (m *redisBackend) AddPoolVersion(ctx context.Context, gameId string, subType int64, version int64) error {

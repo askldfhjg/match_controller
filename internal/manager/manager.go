@@ -6,7 +6,6 @@ import (
 	"match_controller/controller"
 	"match_controller/internal/db"
 	"match_controller/utils"
-	"math"
 	"sync"
 	"time"
 
@@ -97,40 +96,32 @@ func (m *defaultMgr) loop() {
 }
 
 func (m *defaultMgr) processTask(config *poolConfig) {
-	var count int
+	var groups []int
 	var err error
 	//logger.Infof("processTask %+v", config)
-	if count, err = db.Default.GetQueueCount(context.Background(), config.GameId, config.SubType); err != nil {
+	if groups, err = db.Default.GetQueueCounts(context.Background(), config.GameId, config.SubType, config.GroupCount); err != nil {
 		logger.Errorf("processTask get GetQueueCount %s %d error %s", config.GameId, config.SubType, err.Error())
 		return
 	}
-	if count <= 0 {
+	if len(groups) <= 0 {
 		return
 	}
-
+	logger.Infof("processTask group result %+v", groups)
 	version, err := m.PublishPoolVersion(config.GameId, config.SubType)
 	if err != nil {
 		logger.Errorf("processTask AddPoolVersion %s %d error %s", config.GameId, config.SubType, err.Error())
 		return
 	}
-	segCount := int(math.Ceil(float64(count) / float64(config.GroupCount)))
+	segCount := len(groups)
 	reqList := make([]*match_process.MatchTaskReq, segCount)
 	matchId := fmt.Sprintf("%s-%d-%d", config.GameId, config.SubType, time.Now().UnixNano())
 	evalhaskKey := utils.RandomString(15)
 	EvalGroupId := matchId
 	startTime := time.Now().UnixNano() / 1e6
 	realSegCount := 0
-	for i := 0; i < segCount; i++ {
-		st := (i * config.GroupCount) + 1 - config.OffsetCount
-		ed := (i+1)*config.GroupCount + config.OffsetCount
-		if st <= 0 {
-			st = 1
-		}
-		needStop := false
-		if ed >= count {
-			ed = count
-			needStop = true
-		}
+	for i := 0; i+1 < segCount; i++ {
+		st := groups[i] + 1
+		ed := groups[i+1]
 		reqList[i] = &match_process.MatchTaskReq{
 			TaskId:             matchId,
 			SubTaskId:          fmt.Sprintf("%s-%d", matchId, i+1),
@@ -147,9 +138,6 @@ func (m *defaultMgr) processTask(config *poolConfig) {
 			StartTime:          startTime,
 		}
 		realSegCount++
-		if needStop {
-			break
-		}
 	}
 	go func() {
 		matchSrv := match_process.NewMatchProcessService("match_process", client.DefaultClient)
