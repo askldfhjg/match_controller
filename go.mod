@@ -3,7 +3,7 @@ module match_controller
 go 1.15
 
 require (
-	github.com/askldfhjg/match_apis/match_process/proto v0.0.0-20230705090305-e26e4f666a30
+	github.com/askldfhjg/match_apis/match_process/proto v0.0.0-20230706074628-18f201506e74
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect
 	github.com/golang/protobuf v1.4.3
 	github.com/gomodule/redigo v1.8.9

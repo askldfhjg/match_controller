@@ -5,14 +5,16 @@ import (
 	"fmt"
 
 	"github.com/gomodule/redigo/redis"
+	"github.com/micro/micro/v3/service/logger"
 )
 
 const (
-	allTickets     = "allTickets:%s:%d"
-	poolVersionKey = "poolVersionKey:%s:%d"
+	allTickets         = "allTickets:%d:%s:%d"
+	poolVersionKey     = "poolVersionKey:%s:%d"
+	lastPoolVersionKey = "lastPoolVersionKey:%s:%d"
 )
 
-func (m *redisBackend) GetQueueCounts(ctx context.Context, gameId string, subType int64, groupCount int) ([]int, error) {
+func (m *redisBackend) GetQueueCounts(ctx context.Context, oldVersion int64, gameId string, subType int64, groupCount int) ([]int, error) {
 	redisConn, err := m.redisPool.GetContext(ctx)
 	if err != nil {
 		return nil, err
@@ -46,21 +48,34 @@ func (m *redisBackend) GetQueueCounts(ctx context.Context, gameId string, subTyp
 	`
 
 	args := []interface{}{groupCount}
-	keys := []interface{}{fmt.Sprintf(allTickets, gameId, subType)}
+	keys := []interface{}{fmt.Sprintf(allTickets, oldVersion, gameId, subType)}
 	params := []interface{}{script, len(keys)}
 	params = append(params, keys...)
 	params = append(params, args...)
 	return redis.Ints(redisConn.Do("EVAL", params...))
 }
 
-func (m *redisBackend) AddPoolVersion(ctx context.Context, gameId string, subType int64, version int64) error {
+func (m *redisBackend) AddPoolVersion(ctx context.Context, gameId string, subType int64, version int64) (int64, error) {
 	redisConn, err := m.redisPool.GetContext(ctx)
 	if err != nil {
-		return err
+		return 0, err
 	}
 	defer handleConnectionClose(&redisConn)
-	_, err = redisConn.Do("SET", fmt.Sprintf(poolVersionKey, gameId, subType), version)
-	return err
+	oldV, err := redis.Int64(redisConn.Do("SET", fmt.Sprintf(poolVersionKey, gameId, subType), version, "GET"))
+	if err != nil {
+		if err == redis.ErrNil {
+			return 0, nil
+		} else {
+			return 0, err
+		}
+	}
+	if oldV > 0 {
+		_, err := redisConn.Do("SET", fmt.Sprintf(lastPoolVersionKey, gameId, subType), oldV)
+		if err != nil {
+			logger.Errorf("AddPoolVersion set old error %s", err.Error())
+		}
+	}
+	return oldV, nil
 }
 
 func (m *redisBackend) DelPoolVersion(ctx context.Context, gameId string, subType int64) {
@@ -70,4 +85,14 @@ func (m *redisBackend) DelPoolVersion(ctx context.Context, gameId string, subTyp
 	}
 	defer handleConnectionClose(&redisConn)
 	redisConn.Do("DEL", fmt.Sprintf(poolVersionKey, gameId, subType))
+}
+
+func (m *redisBackend) InitPoolVersion(ctx context.Context, gameId string, subType int64, version int64) error {
+	redisConn, err := m.redisPool.GetContext(ctx)
+	if err != nil {
+		return err
+	}
+	defer handleConnectionClose(&redisConn)
+	_, err = redisConn.Do("SET", fmt.Sprintf(poolVersionKey, gameId, subType), version, "NX")
+	return err
 }

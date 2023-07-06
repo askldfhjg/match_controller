@@ -62,6 +62,10 @@ func (m *defaultMgr) Start() error {
 			},
 		},
 	})
+	err := m.initPoolVersion()
+	if err != nil {
+		return err
+	}
 	go m.loop()
 	return nil
 }
@@ -74,6 +78,24 @@ func (m *defaultMgr) Stop() error {
 func (m *defaultMgr) AddTask(gameId string) error {
 	m.matchChannel <- gameId
 	return nil
+}
+
+func (m *defaultMgr) initPoolVersion() error {
+	version := time.Now().UnixNano()
+	var err error
+	m.gameConfig.Range(func(key interface{}, val interface{}) bool {
+		config, ok := val.(*gameConfig)
+		if ok {
+			for _, cfg := range config.Pools {
+				err = db.Default.InitPoolVersion(context.Background(), cfg.GameId, cfg.SubType, version)
+				if err != nil {
+					return false
+				}
+			}
+		}
+		return true
+	})
+	return err
 }
 
 func (m *defaultMgr) loop() {
@@ -99,28 +121,35 @@ func (m *defaultMgr) processTask(config *poolConfig) {
 	var groups []int
 	var err error
 	//logger.Infof("processTask %+v", config)
-	if groups, err = db.Default.GetQueueCounts(context.Background(), config.GameId, config.SubType, config.GroupCount); err != nil {
+	logger.Infof("processTask group result %+v", groups)
+	version, oldV, err := m.PublishPoolVersion(config.GameId, config.SubType)
+	if err != nil {
+		logger.Errorf("processTask AddPoolVersion %s %d error %s", config.GameId, config.SubType, err.Error())
+		return
+	}
+
+	if groups, err = db.Default.GetQueueCounts(context.Background(), oldV, config.GameId, config.SubType, config.GroupCount); err != nil {
 		logger.Errorf("processTask get GetQueueCount %s %d error %s", config.GameId, config.SubType, err.Error())
 		return
 	}
 	if len(groups) <= 0 {
 		return
 	}
-	logger.Infof("processTask group result %+v", groups)
-	version, err := m.PublishPoolVersion(config.GameId, config.SubType)
-	if err != nil {
-		logger.Errorf("processTask AddPoolVersion %s %d error %s", config.GameId, config.SubType, err.Error())
-		return
-	}
+
 	segCount := len(groups)
 	reqList := make([]*match_process.MatchTaskReq, segCount)
 	matchId := fmt.Sprintf("%s-%d-%d", config.GameId, config.SubType, time.Now().UnixNano())
-	evalhaskKey := utils.RandomString(15)
-	EvalGroupId := matchId
+	//evalhaskKey := utils.RandomString(15)
+	//EvalGroupId := evalhaskKey
 	startTime := time.Now().UnixNano() / 1e6
 	realSegCount := 0
 	for i := 0; i+1 < segCount; i++ {
+		evalhaskKey := utils.RandomString(15)
+		EvalGroupId := evalhaskKey
 		st := groups[i] + 1
+		if i == 0 {
+			st = groups[i]
+		}
 		ed := groups[i+1]
 		reqList[i] = &match_process.MatchTaskReq{
 			TaskId:             matchId,
@@ -130,43 +159,62 @@ func (m *defaultMgr) processTask(config *poolConfig) {
 			StartPos:           int64(st),
 			EndPos:             int64(ed),
 			EvalGroupId:        EvalGroupId,
-			EvalGroupTaskCount: 0,
-			EvalGroupSubId:     int64(i + 1),
+			EvalGroupTaskCount: 1,
+			EvalGroupSubId:     1,
 			EvalhaskKey:        evalhaskKey,
 			NeedCount:          config.NeedCount,
 			Version:            version,
 			StartTime:          startTime,
+			OldVersion:         oldV,
 		}
 		realSegCount++
 	}
-	go func() {
-		matchSrv := match_process.NewMatchProcessService("match_process", client.DefaultClient)
-		for _, rr := range reqList {
-			if rr == nil {
-				continue
-			}
-			rr.EvalGroupTaskCount = int64(realSegCount)
-			//logger.Infof("result %+v", rr)
-			_, err := matchSrv.MatchTask(context.Background(), rr)
+	// go func() {
+	// 	matchSrv := match_process.NewMatchProcessService("match_process", client.DefaultClient)
+	// 	for _, rr := range reqList {
+	// 		if rr == nil {
+	// 			continue
+	// 		}
+	// 		//rr.EvalGroupTaskCount = int64(realSegCount)
+	// 		//logger.Infof("result %+v", rr)
+	// 		_, err := matchSrv.MatchTask(context.Background(), rr)
+	// 		if err != nil {
+	// 			logger.Infof("processTask send error %+v", err)
+	// 		} else {
+	// 			//logger.Infof("processTask send result %+v", rsp)
+	// 		}
+	// 	}
+	// }()
+	for _, rr := range reqList {
+		if rr == nil {
+			continue
+		}
+		//rr.EvalGroupTaskCount = int64(realSegCount)
+		//logger.Infof("result %+v", rr)
+		req := rr
+		go func() {
+			matchSrv := match_process.NewMatchProcessService("match_process", client.DefaultClient)
+			_, err := matchSrv.MatchTask(context.Background(), req)
 			if err != nil {
 				logger.Infof("processTask send error %+v", err)
 			} else {
 				//logger.Infof("processTask send result %+v", rsp)
 			}
-		}
-	}()
+		}()
+	}
 }
 
-func (m *defaultMgr) PublishPoolVersion(gameId string, subType int64) (int64, error) {
+func (m *defaultMgr) PublishPoolVersion(gameId string, subType int64) (int64, int64, error) {
 	version := time.Now().UnixNano()
-	err := db.Default.AddPoolVersion(context.Background(), gameId, subType, version)
+	oldV, err := db.Default.AddPoolVersion(context.Background(), gameId, subType, version)
 	if err != nil {
-		return 0, err
+		return 0, 0, err
 	}
 	msg := &match_process.PoolVersionMsg{
-		GameId:  gameId,
-		SubType: subType,
-		Version: version,
+		GameId:     gameId,
+		SubType:    subType,
+		Version:    version,
+		OldVersion: oldV,
 	}
 	by, _ := proto.Marshal(msg)
 	err = broker.Publish("pool_version", &broker.Message{
@@ -176,7 +224,7 @@ func (m *defaultMgr) PublishPoolVersion(gameId string, subType int64) (int64, er
 	if err != nil {
 		db.Default.DelPoolVersion(context.Background(), gameId, subType)
 		logger.Errorf("PublishPoolVersion publish err : %s", err.Error())
-		return 0, err
+		return 0, 0, err
 	}
-	return version, err
+	return version, oldV, err
 }
