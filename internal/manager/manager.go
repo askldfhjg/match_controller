@@ -6,10 +6,12 @@ import (
 	"match_controller/controller"
 	"match_controller/internal/db"
 	"match_controller/utils"
+	"strings"
 	"sync"
 	"time"
 
 	match_process "github.com/askldfhjg/match_apis/match_process/proto"
+	"github.com/gomodule/redigo/redis"
 	"google.golang.org/protobuf/proto"
 
 	"github.com/micro/micro/v3/service/broker"
@@ -121,12 +123,22 @@ func (m *defaultMgr) processTask(config *poolConfig) {
 	var groups []int
 	var err error
 	//logger.Infof("processTask %+v", config)
-	logger.Infof("processTask group result %+v", groups)
-	version, oldV, err := m.PublishPoolVersion(config.GameId, config.SubType)
+	version := time.Now().UnixNano()
+
+	_, err = db.Default.TryLockPool(context.Background(), config.GameId, config.SubType, version)
+	if err == nil {
+		logger.Infof("processTask locked %s %d", config.GameId, config.SubType)
+		return
+	} else if err != redis.ErrNil {
+		logger.Infof("processTask have error %s %d %s", config.GameId, config.SubType, err.Error())
+		return
+	}
+	oldV, lastVersionKey, err := m.PublishPoolVersion(config.GameId, config.SubType, version)
 	if err != nil {
 		logger.Errorf("processTask AddPoolVersion %s %d error %s", config.GameId, config.SubType, err.Error())
 		return
 	}
+	m.processLastTask(config.GameId, config.SubType, lastVersionKey, oldV)
 
 	if groups, err = db.Default.GetQueueCounts(context.Background(), oldV, config.GameId, config.SubType, config.GroupCount); err != nil {
 		logger.Errorf("processTask get GetQueueCount %s %d error %s", config.GameId, config.SubType, err.Error())
@@ -135,7 +147,7 @@ func (m *defaultMgr) processTask(config *poolConfig) {
 	if len(groups) <= 0 {
 		return
 	}
-
+	logger.Infof("processTask group result %+v", groups)
 	segCount := len(groups)
 	reqList := make([]*match_process.MatchTaskReq, segCount)
 	matchId := fmt.Sprintf("%s-%d-%d", config.GameId, config.SubType, time.Now().UnixNano())
@@ -143,6 +155,7 @@ func (m *defaultMgr) processTask(config *poolConfig) {
 	//EvalGroupId := evalhaskKey
 	startTime := time.Now().UnixNano() / 1e6
 	realSegCount := 0
+	info := map[string]string{}
 	for i := 0; i+1 < segCount; i++ {
 		evalhaskKey := utils.RandomString(15)
 		EvalGroupId := evalhaskKey
@@ -151,9 +164,10 @@ func (m *defaultMgr) processTask(config *poolConfig) {
 			st = groups[i]
 		}
 		ed := groups[i+1]
+		subTaskId := fmt.Sprintf("%s-%d", matchId, i+1)
 		reqList[i] = &match_process.MatchTaskReq{
 			TaskId:             matchId,
-			SubTaskId:          fmt.Sprintf("%s-%d", matchId, i+1),
+			SubTaskId:          subTaskId,
 			GameId:             config.GameId,
 			SubType:            config.SubType,
 			StartPos:           int64(st),
@@ -168,6 +182,16 @@ func (m *defaultMgr) processTask(config *poolConfig) {
 			OldVersion:         oldV,
 		}
 		realSegCount++
+		info[subTaskId] = fmt.Sprintf("%d|%d", st, ed)
+	}
+	addCount, err := db.Default.SetTaskFlag(context.Background(), config.GameId, config.SubType, oldV, info)
+	if err != nil {
+		logger.Errorf("processTask SetTaskFlag have error %s %d %s", config.GameId, config.SubType, err.Error())
+		return
+	}
+	if addCount != len(info) {
+		logger.Errorf("processTask SetTaskFlag count not match %s %d %d %d", config.GameId, config.SubType, addCount, len(info))
+		return
 	}
 	// go func() {
 	// 	matchSrv := match_process.NewMatchProcessService("match_process", client.DefaultClient)
@@ -204,9 +228,9 @@ func (m *defaultMgr) processTask(config *poolConfig) {
 	}
 }
 
-func (m *defaultMgr) PublishPoolVersion(gameId string, subType int64) (int64, int64, error) {
-	version := time.Now().UnixNano()
-	oldV, err := db.Default.AddPoolVersion(context.Background(), gameId, subType, version)
+func (m *defaultMgr) PublishPoolVersion(gameId string, subType int64, vv int64) (int64, int64, error) {
+	version := vv
+	oldV, lastVersionKey, err := db.Default.AddPoolVersion(context.Background(), gameId, subType, version)
 	if err != nil {
 		return 0, 0, err
 	}
@@ -222,9 +246,34 @@ func (m *defaultMgr) PublishPoolVersion(gameId string, subType int64) (int64, in
 		Body:   by,
 	})
 	if err != nil {
-		db.Default.DelPoolVersion(context.Background(), gameId, subType)
+		//db.Default.DelPoolVersion(context.Background(), gameId, subType)
 		logger.Errorf("PublishPoolVersion publish err : %s", err.Error())
 		return 0, 0, err
 	}
-	return version, oldV, err
+	return oldV, lastVersionKey, err
+}
+
+func (m *defaultMgr) processLastTask(gameId string, subType int64, lastVersionKey int64, version int64) {
+	maps, _ := db.Default.GetTaskFlag(context.Background(), gameId, subType, lastVersionKey)
+	for keyy, str := range maps {
+		tmps := strings.Split(str, "|")
+		if len(tmps) < 2 {
+			continue
+		}
+		ret, _ := db.Default.ProcessLastTask(context.Background(), gameId, subType, lastVersionKey, tmps[0], tmps[1])
+		if ret == nil {
+			continue
+		}
+		delCount, err := db.Default.MoveTokens(context.Background(), version, ret, gameId, subType)
+		if err == nil {
+			//m.resultChannel1 <- retDetail
+			if delCount != len(ret) {
+				logger.Errorf("processLastTask MoveTokens count %d %d %d", keyy, delCount, len(ret))
+			} else {
+				//logger.Infof("RemoveTokens success %d %d %d", req.EvalGroupSubId, len(retDetail), time.Now().UnixNano()/1e6)
+			}
+		} else {
+			logger.Errorf("processLastTask have err %d %s", keyy, err.Error())
+		}
+	}
 }

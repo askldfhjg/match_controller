@@ -5,13 +5,13 @@ import (
 	"fmt"
 
 	"github.com/gomodule/redigo/redis"
-	"github.com/micro/micro/v3/service/logger"
 )
 
 const (
-	allTickets         = "allTickets:%d:%s:%d"
-	poolVersionKey     = "poolVersionKey:%s:%d"
-	lastPoolVersionKey = "lastPoolVersionKey:%s:%d"
+	allTickets     = "allTickets:%d:%s:%d"
+	poolVersionKey = "poolVersionKey:%s:%d"
+	taskFlag       = "taskFlag:%d:%s:%d"
+	poolLock       = "poolLock:%s:%d"
 )
 
 func (m *redisBackend) GetQueueCounts(ctx context.Context, oldVersion int64, gameId string, subType int64, groupCount int) ([]int, error) {
@@ -55,37 +55,59 @@ func (m *redisBackend) GetQueueCounts(ctx context.Context, oldVersion int64, gam
 	return redis.Ints(redisConn.Do("EVAL", params...))
 }
 
-func (m *redisBackend) AddPoolVersion(ctx context.Context, gameId string, subType int64, version int64) (int64, error) {
+func (m *redisBackend) AddPoolVersion(ctx context.Context, gameId string, subType int64, version int64) (int64, int64, error) {
 	redisConn, err := m.redisPool.GetContext(ctx)
 	if err != nil {
-		return 0, err
+		return 0, 0, err
 	}
 	defer handleConnectionClose(&redisConn)
-	oldV, err := redis.Int64(redisConn.Do("SET", fmt.Sprintf(poolVersionKey, gameId, subType), version, "GET"))
+
+	script := `
+	if(#ARGV < 1) then
+		error("argv error")
+	end
+	local values = redis.call('HGETALL', KEYS[1])
+	local result = {}
+	if(#values <= 0) then
+		result["poolVersionKey"] = "0"
+		result["lastPoolVersionKey"] = "0"
+	else
+		for i = 1, #values, 2 do
+			local key = values[i]
+			local value = values[i + 1]
+			result[key] = value
+		end
+		if(result["poolVersionKey"] == nil) then
+			result["poolVersionKey"] = "0"
+		end
+		if(result["lastPoolVersionKey"] == nil) then
+			result["lastPoolVersionKey"] = "0"
+		end
+	end
+	redis.call('HSET', KEYS[1], 'poolVersionKey', ARGV[1], 'lastPoolVersionKey', result["poolVersionKey"])
+	return {result["poolVersionKey"], result["lastPoolVersionKey"]}
+	`
+
+	args := []interface{}{version}
+	keys := []interface{}{fmt.Sprintf(poolVersionKey, gameId, subType)}
+	params := []interface{}{script, len(keys)}
+	params = append(params, keys...)
+	params = append(params, args...)
+	rr, err := redis.Int64s(redisConn.Do("EVAL", params...))
 	if err != nil {
-		if err == redis.ErrNil {
-			return 0, nil
-		} else {
-			return 0, err
-		}
+		return 0, 0, err
 	}
-	if oldV > 0 {
-		_, err := redisConn.Do("SET", fmt.Sprintf(lastPoolVersionKey, gameId, subType), oldV)
-		if err != nil {
-			logger.Errorf("AddPoolVersion set old error %s", err.Error())
-		}
-	}
-	return oldV, nil
+	return rr[0], rr[1], nil
 }
 
-func (m *redisBackend) DelPoolVersion(ctx context.Context, gameId string, subType int64) {
-	redisConn, err := m.redisPool.GetContext(ctx)
-	if err != nil {
-		return
-	}
-	defer handleConnectionClose(&redisConn)
-	redisConn.Do("DEL", fmt.Sprintf(poolVersionKey, gameId, subType))
-}
+// func (m *redisBackend) DelPoolVersion(ctx context.Context, gameId string, subType int64) {
+// 	redisConn, err := m.redisPool.GetContext(ctx)
+// 	if err != nil {
+// 		return
+// 	}
+// 	defer handleConnectionClose(&redisConn)
+// 	redisConn.Do("DEL", fmt.Sprintf(poolVersionKey, gameId, subType))
+// }
 
 func (m *redisBackend) InitPoolVersion(ctx context.Context, gameId string, subType int64, version int64) error {
 	redisConn, err := m.redisPool.GetContext(ctx)
@@ -93,6 +115,82 @@ func (m *redisBackend) InitPoolVersion(ctx context.Context, gameId string, subTy
 		return err
 	}
 	defer handleConnectionClose(&redisConn)
-	_, err = redisConn.Do("SET", fmt.Sprintf(poolVersionKey, gameId, subType), version, "NX")
+	_, err = redisConn.Do("HSETNX", fmt.Sprintf(poolVersionKey, gameId, subType), "poolVersionKey", version)
 	return err
+}
+
+func (m *redisBackend) GetTaskFlag(ctx context.Context, gameId string, subType int64, version int64) (map[string]string, error) {
+	redisConn, err := m.redisPool.GetContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer handleConnectionClose(&redisConn)
+	return redis.StringMap(redisConn.Do("HGETALL", fmt.Sprintf(taskFlag, version, gameId, subType)))
+}
+
+func (m *redisBackend) SetTaskFlag(ctx context.Context, gameId string, subType int64, version int64, info map[string]string) (int, error) {
+	redisConn, err := m.redisPool.GetContext(ctx)
+	if err != nil {
+		return 0, err
+	}
+	defer handleConnectionClose(&redisConn)
+	queryParams := make([]interface{}, len(info)*2+1)
+	index := 0
+	queryParams[index] = fmt.Sprintf(taskFlag, version, gameId, subType)
+	for k, v := range info {
+		index++
+		queryParams[index] = k
+		index++
+		queryParams[index] = v
+	}
+	return redis.Int(redisConn.Do("HSET", queryParams...))
+}
+
+func (m *redisBackend) TryLockPool(ctx context.Context, gameId string, subType int64, version int64) (int64, error) {
+	redisConn, err := m.redisPool.GetContext(ctx)
+	if err != nil {
+		return 0, err
+	}
+	defer handleConnectionClose(&redisConn)
+	return redis.Int64(redisConn.Do("SET", fmt.Sprintf(poolLock, gameId, subType), version, "NX", "GET", "EX", 10))
+}
+
+func (m *redisBackend) ProcessLastTask(ctx context.Context, gameId string, subType int64, version int64, startPos string, endPos string) (map[string]string, error) {
+	redisConn, err := m.redisPool.GetContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer handleConnectionClose(&redisConn)
+
+	zsetKey := fmt.Sprintf(allTickets, version, gameId, subType)
+	reply, err := redis.StringMap(redisConn.Do("ZRANGEBYSCORE", zsetKey, startPos, endPos, "WITHSCORES"))
+	if err == redis.ErrNil {
+		return nil, nil
+	}
+	return reply, nil
+}
+
+func (m *redisBackend) MoveTokens(ctx context.Context, version int64, retDetail map[string]string, gameId string, subType int64) (int, error) {
+	redisConn, err := m.redisPool.GetContext(ctx)
+	if err != nil {
+		return 0, err
+	}
+	defer handleConnectionClose(&redisConn)
+	if len(retDetail) <= 0 {
+		return 0, err
+	}
+	zsetKey := fmt.Sprintf(allTickets, version, gameId, subType)
+
+	queryParams := make([]interface{}, len(retDetail)*2+1)
+	index := 0
+	queryParams[index] = zsetKey
+
+	for id, score := range retDetail {
+		index++
+		queryParams[index] = score
+		index++
+		queryParams[index] = id
+	}
+	return redis.Int(redisConn.Do("ZADD", queryParams...))
+
 }
