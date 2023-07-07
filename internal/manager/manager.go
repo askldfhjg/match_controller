@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"match_controller/controller"
 	"match_controller/internal/db"
+	"match_controller/internal/job"
 	"match_controller/utils"
 	"strings"
 	"sync"
@@ -52,6 +53,7 @@ type defaultMgr struct {
 }
 
 func (m *defaultMgr) Start() error {
+	job.Start()
 	m.gameConfig.Store("aaaa", &gameConfig{
 		GameId: "aaaa",
 		Pools: []*poolConfig{
