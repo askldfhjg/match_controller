@@ -53,7 +53,6 @@ type defaultMgr struct {
 }
 
 func (m *defaultMgr) Start() error {
-	job.Start()
 	m.gameConfig.Store("aaaa", &gameConfig{
 		GameId: "aaaa",
 		Pools: []*poolConfig{
@@ -71,6 +70,7 @@ func (m *defaultMgr) Start() error {
 		return err
 	}
 	go m.loop()
+	go job.Start()
 	return nil
 }
 

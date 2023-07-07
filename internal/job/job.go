@@ -4,10 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
 	"match_controller/controller"
 	"os"
 
+	"github.com/micro/micro/v3/service/logger"
 	"github.com/xxl-job/xxl-job-executor-go"
 )
 
@@ -21,7 +21,11 @@ func Start() {
 	exec.Init()
 	//注册任务
 	exec.RegTask("match_controller.task", task)
-	log.Fatal(exec.Run())
+	err := exec.Run()
+	if err != nil {
+		logger.Errorf("xxjob init error %s", err.Error())
+	}
+
 }
 
 type executorParams struct {
@@ -29,15 +33,15 @@ type executorParams struct {
 }
 
 func task(cxt context.Context, param *xxl.RunReq) (msg string) {
-	fmt.Println("xxl-job===" + param.ExecutorHandler + " param：" + param.ExecutorParams + " log_id:" + xxl.Int64ToStr(param.LogID))
+	logger.Info("xxl-job===" + param.ExecutorHandler + " param：" + param.ExecutorParams + " log_id:" + xxl.Int64ToStr(param.LogID))
 	params := &executorParams{}
 	err := json.Unmarshal([]byte(param.ExecutorParams), params)
 	if err != nil {
-		fmt.Println("xxl-job===ExecutorParams error", err)
+		logger.Info("xxl-job===ExecutorParams error", err)
 	}
 	err = controller.DefaultManager.AddTask(params.GameId)
 	if err != nil {
-		fmt.Println("xxl-job===invoke addTask error", err)
+		logger.Info("xxl-job===invoke addTask error", err)
 		return "error"
 	}
 	return "done"
